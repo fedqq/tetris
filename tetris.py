@@ -24,9 +24,12 @@ class Tetris:
         self.blocks = []
         self.delay = DELAY
         self.first_time = True
+        self.record = 0
         self.score = 0
         self.label = Label(self.window, text = "Score: {}".format(self.score), font = ("Arial", 30), bg = "#000000", fg = "#ffffff")
         self.label.pack()
+        self.best_label = Label(self.window, text = "Record: {}".format(self.record), font = ("Arial", 30), bg = "#000000", fg = "#ffffff")
+        self.best_label.pack()
         self.paused = False
 
         self.window.bind("<Right>",             lambda e: self.move(right = True))
@@ -37,6 +40,15 @@ class Tetris:
         self.window.bind("<Escape>",            lambda e: self.pause())
         self.window.bind("<space>",             lambda e: self.hard_drop())
 
+        self.window.protocol("WM_DELETE_WINDOW", self.on_close)
+
+        best_file = open("score.txt", 'r')
+        high_score = best_file.read()
+        if high_score != '':
+            self.record = int(high_score)
+        best_file.close()
+        self.best_label.configure(text = "Record: {}".format(self.record))
+
         self.new_block()
         self.draw_loop()
 
@@ -44,6 +56,9 @@ class Tetris:
 
     def increase_score(self, amount):
         self.score += amount
+        if self.score > self.record:
+            self.record = self.score
+            self.best_label.configure(text = "Record: {}".format(self.record))
         self.label.configure(text = "Score: {}".format(self.score))
 
     def down_press(self, press):
@@ -63,7 +78,14 @@ class Tetris:
         else:
             self.blocks[-1].move_left()
         
-        self.draw_single()
+        self.draw()
+
+    def on_close(self):
+        open('score.txt', 'w').close()
+        file = open("score.txt", 'w')
+        file.write(str(self.record))
+        file.close()
+        self.window.destroy()
 
     def get_block_types(self):
         return self.block_types
@@ -71,13 +93,10 @@ class Tetris:
     def hard_drop(self):
         while self.blocks[-1].placed == False:
             self.increase_score(2)
-            print('moved down')
             self.blocks[-1].move_down(delay = False)
 
-        self.draw_single()
-
-
-
+        self.draw()
+        
     def reset_block_types(self):
         self.block_types = [    [   [[2, 1], [1, 2], [2, 2], [1, 3]], 
                                     [[1, 1], [2, 1], [2, 2], [3, 2]], "#3877FF", "Z"], 
@@ -163,9 +182,9 @@ class Tetris:
         else:
             self.paused = True
             self.window.after_cancel(self.after)
-            self.draw_single()
+            self.draw()
 
-    def draw_single(self):
+    def draw(self):
         self.canvas.delete("all")
         num = 0
         if self.blocks[-1].placed:
@@ -188,7 +207,7 @@ class Tetris:
             if b[1] < row:
                 b[1] += 1
 
-        self.draw_single()
+        self.draw()
 
 game = Tetris()
 
@@ -237,7 +256,7 @@ class Block:
 
         self.current_config = new_config_id
         self.squares = new_squares
-        game.draw_single()
+        game.draw()
 
     def place(self):
         self.placed = True
@@ -248,7 +267,10 @@ class Block:
             if sq[1] + 1 == 15 or [sq[0], sq[1] + 1] in game.placed_squares:
                 self.wait_place = True
                 if delay:
-                    game.window.after(500, lambda: self.place())
+                    game.window.after(500, lambda: self.move_down(delay = False))
+                    if delay == False:
+                        self.place()
+
                 else:
                     self.place()
         if self.placed or self.wait_place:
@@ -289,7 +311,5 @@ class Block:
         for sq in self.squares:
             if sq[1] < row:
                 sq[1] += 1
-
-
 
 game.init()

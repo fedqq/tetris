@@ -22,12 +22,14 @@ class Tetris:
         self.placed_squares = []
         self.blocks = []
         self.delay = DELAY
+        self.paused = False
 
-        self.window.bind("<Right>", lambda event: self.move(right = True))
-        self.window.bind("<Left>",  lambda event: self.move(right = False))
-        self.window.bind("<Up>",    lambda event: self.turn())
-        self.window.bind("<Down>",  lambda event: self.down_press(press = True))
-        self.window.bind("<KeyRelease-Down>", lambda char: self.down_press(press = False))
+        self.window.bind("<Right>", lambda e: self.move(right = True))
+        self.window.bind("<Left>",  lambda e: self.move(right = False))
+        self.window.bind("<Up>",    lambda e: self.turn())
+        self.window.bind("<Down>",  lambda e: self.down_press(press = True))
+        self.window.bind("<KeyRelease-Down>", lambda e: self.down_press(press = False))
+        self.window.bind("<Escape>", lambda e: self.pause())
 
         self.new_block()
         self.draw_loop()
@@ -118,6 +120,16 @@ class Tetris:
         
         self.after = self.window.after(self.delay, self.draw_loop)
 
+    def pause(self):
+        if self.paused:
+            self.paused = False
+            self.draw_loop()
+        else:
+            self.paused = True
+            self.window.after_cancel(self.after)
+            self.draw_single()
+
+
     def draw_placed(self):
         if not DEBUG:
             return
@@ -152,7 +164,6 @@ class Tetris:
                 b[1] += 1
 
         self.draw_single()
-
 
 game = Tetris()
 

@@ -14,6 +14,7 @@ class Tetris:
         self.window = Tk()
         self.window.title("Tetris")
         self.window.resizable(False, False)
+        self.window.configure(bg = "#000000")
 
         self.canvas = Canvas(self.window, bg = "#000000", width = COLUMNS * SPACE_SIZE, height = ROWS * SPACE_SIZE, bd = 0, relief = RAISED)
         self.canvas.pack()
@@ -22,19 +23,27 @@ class Tetris:
         self.placed_squares = []
         self.blocks = []
         self.delay = DELAY
+        self.first_time = True
+        self.score = 0
+        self.label = Label(self.window, text = "Score: {}".format(self.score), font = ("Arial", 30), bg = "#000000", fg = "#ffffff")
+        self.label.pack()
         self.paused = False
 
-        self.window.bind("<Right>", lambda e: self.move(right = True))
-        self.window.bind("<Left>",  lambda e: self.move(right = False))
-        self.window.bind("<Up>",    lambda e: self.turn())
-        self.window.bind("<Down>",  lambda e: self.down_press(press = True))
-        self.window.bind("<KeyRelease-Down>", lambda e: self.down_press(press = False))
-        self.window.bind("<Escape>", lambda e: self.pause())
+        self.window.bind("<Right>",             lambda e: self.move(right = True))
+        self.window.bind("<Left>",              lambda e: self.move(right = False))
+        self.window.bind("<Up>",                lambda e: self.turn())
+        self.window.bind("<Down>",              lambda e: self.down_press(press = True))
+        self.window.bind("<KeyRelease-Down>",   lambda e: self.down_press(press = False))
+        self.window.bind("<Escape>",            lambda e: self.pause())
 
         self.new_block()
         self.draw_loop()
 
         self.window.mainloop()
+
+    def increase_score(self, amount):
+        self.score += amount
+        self.label.configure(text = "Score: {}".format(self.score))
 
     def down_press(self, press):
 
@@ -88,6 +97,10 @@ class Tetris:
                             ]
 
     def new_block(self):
+        if not self.first_time:
+            game.increase_score(10)
+        else:
+            self.first_time = False
         self.reset_block_types()
         self.blocks.append(Block())
 
@@ -98,6 +111,8 @@ class Tetris:
     def draw_loop(self):
         self.canvas.delete("all")
         num = 0
+        if self.delay == DOWN_DELAY:
+            self.increase_score(1)
         
         found_row = 0
         num = 0
@@ -119,6 +134,7 @@ class Tetris:
                 self.canvas.create_rectangle(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill = block.color, outline = block.color)
         
         self.after = self.window.after(self.delay, self.draw_loop)
+        print(self.score)
 
     def pause(self):
         if self.paused:
@@ -227,7 +243,6 @@ class Block:
             if self.placed or self.wait_place:
                 for square in self.squares:
                     if [square[0], square[1]] not in game.placed_squares:
-                        
                         game.placed_squares.append([square[0], square[1]])
                 return
 

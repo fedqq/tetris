@@ -145,9 +145,6 @@ class Tetris:
         elif found_rows == 4:
             self.increase_score(1200)
 
-
-
-
         if self.blocks[-1].placed:
             self.new_block()
         self.blocks[-1].move_down()
@@ -200,7 +197,7 @@ class Block:
     def __init__(self):
 
         self.placed = False
-        self.x_offset = 0
+        self.x_offset = 3
         self.y_offset = 0
         self.squares = []
         self.wait_place = False
@@ -215,7 +212,7 @@ class Block:
         
         for square in self.turn_configs[0]:
             a = square
-            self.squares.append([a[0], a[1] - 2])
+            self.squares.append([a[0] + 3, a[1] - 2])
 
     def turn(self):
 

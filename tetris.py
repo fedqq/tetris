@@ -35,6 +35,7 @@ class Tetris:
         self.window.bind("<Down>",              lambda e: self.down_press(press = True))
         self.window.bind("<KeyRelease-Down>",   lambda e: self.down_press(press = False))
         self.window.bind("<Escape>",            lambda e: self.pause())
+        self.window.bind("<space>",             lambda e: self.hard_drop())
 
         self.new_block()
         self.draw_loop()
@@ -66,6 +67,16 @@ class Tetris:
 
     def get_block_types(self):
         return self.block_types
+
+    def hard_drop(self):
+        while self.blocks[-1].placed == False:
+            self.increase_score(2)
+            print('moved down')
+            self.blocks[-1].move_down(delay = False)
+
+        self.draw_single()
+
+
 
     def reset_block_types(self):
         self.block_types = [    [   [[2, 1], [1, 2], [2, 2], [1, 3]], 
@@ -115,13 +126,26 @@ class Tetris:
             self.increase_score(1)
         
         found_row = 0
+        found_rows = 0
         num = 0
         for a in range(ROWS):
 
             num = len([p for p in self.placed_squares if p[1] == a])
             if num == COLUMNS:
                 found_row = a
+                found_rows += 1
                 self.remove_row(found_row)
+
+        if found_rows == 1:
+            self.increase_score(40)
+        elif found_rows == 2:
+            self.increase_score(100)
+        elif found_rows == 3:
+            self.increase_score(300)
+        elif found_rows == 4:
+            self.increase_score(1200)
+
+
 
 
         if self.blocks[-1].placed:
@@ -134,7 +158,6 @@ class Tetris:
                 self.canvas.create_rectangle(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill = block.color, outline = block.color)
         
         self.after = self.window.after(self.delay, self.draw_loop)
-        print(self.score)
 
     def pause(self):
         if self.paused:
@@ -144,15 +167,6 @@ class Tetris:
             self.paused = True
             self.window.after_cancel(self.after)
             self.draw_single()
-
-
-    def draw_placed(self):
-        if not DEBUG:
-            return
-        for square in self.placed_squares:
-            x = square[0] * SPACE_SIZE
-            y = square[1] * SPACE_SIZE
-            self.canvas.create_rectangle(x + 5, y + 5, x + SPACE_SIZE - 5, y + SPACE_SIZE - 5, fill = "#FF0D72")
 
     def draw_single(self):
         self.canvas.delete("all")
@@ -165,8 +179,6 @@ class Tetris:
                 x = square[0] * SPACE_SIZE
                 y = square[1] * SPACE_SIZE
                 self.canvas.create_rectangle(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill = block.color, outline = block.color)
-
-        self.draw_placed()
 
     def remove_row(self,  row):
 
@@ -234,17 +246,19 @@ class Block:
         self.placed = True
         self.wait_place = False
 
-    def move_down(self, check = True):
-        if check:
-            for sq in self.squares:
-                if sq[1] + 1 == 15 or [sq[0], sq[1] + 1] in game.placed_squares:
-                    self.wait_place = True
+    def move_down(self, delay = True):
+        for sq in self.squares:
+            if sq[1] + 1 == 15 or [sq[0], sq[1] + 1] in game.placed_squares:
+                self.wait_place = True
+                if delay:
                     game.window.after(500, lambda: self.place())
-            if self.placed or self.wait_place:
-                for square in self.squares:
-                    if [square[0], square[1]] not in game.placed_squares:
-                        game.placed_squares.append([square[0], square[1]])
-                return
+                else:
+                    self.place()
+        if self.placed or self.wait_place:
+            for square in self.squares:
+                if [square[0], square[1]] not in game.placed_squares:
+                    game.placed_squares.append([square[0], square[1]])
+            return
 
         if not self.wait_place:
             self.y_offset += 1

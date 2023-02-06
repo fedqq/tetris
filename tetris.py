@@ -1,5 +1,6 @@
 from tkinter import *
 from random import randint
+from tkextrafont import Font
 
 ROWS = 15
 COLUMNS = 10
@@ -24,6 +25,7 @@ class Tetris:
         self.blocks = []
         self.delay = DELAY
         self.first_time = True
+        self.lost = False
         self.record = 0
         self.score = 0
         self.label = Label(self.window, text = "Score: {}".format(self.score), font = ("Arial", 30), bg = "#000000", fg = "#ffffff")
@@ -39,6 +41,7 @@ class Tetris:
         self.window.bind("<KeyRelease-Down>",   lambda e: self.down_press(press = False))
         self.window.bind("<Escape>",            lambda e: self.pause())
         self.window.bind("<space>",             lambda e: self.hard_drop())
+        self.window.bind("<Button-1>",          lambda e: self.click())
 
         self.window.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -54,6 +57,46 @@ class Tetris:
 
         self.window.mainloop()
 
+    def click(self):
+        if self.lost:
+            self.restart()
+
+    def lose(self):
+        self.lost = True
+        self.window.after_cancel(self.after)
+        self.canvas.delete("all")
+        self.label.destroy()
+        self.best_label.destroy()
+
+        middle = (COLUMNS * SPACE_SIZE) / 2
+        self.canvas.create_text(    
+                                    (COLUMNS * SPACE_SIZE) / 2, 
+                                    (ROWS * SPACE_SIZE) / 2, 
+                                    text = 'Score: {}\nRecord: {}\nClick To Restart'.format(self.score, self.record), 
+                                    fill = 'white', 
+                                    font = ('Rockwell Nova Extra Bold', 30), 
+                                    justify = CENTER
+                                )
+    
+    def restart(self):
+
+        self.reset_block_types()
+        self.placed_squares = []
+        self.blocks = []
+        self.delay = DELAY
+        self.first_time = True
+        self.lost = False
+        self.record = 0
+        self.score = 0
+        self.label = Label(self.window, text = "Score: {}".format(self.score), font = ("Arial", 30), bg = "#000000", fg = "#ffffff")
+        self.label.pack()
+        self.best_label = Label(self.window, text = "Record: {}".format(self.record), font = ("Arial", 30), bg = "#000000", fg = "#ffffff")
+        self.best_label.pack()
+        self.paused = False
+
+        self.new_block()
+        self.draw_loop()
+
     def increase_score(self, amount):
         self.score += amount
         if self.score > self.record:
@@ -62,6 +105,8 @@ class Tetris:
         self.label.configure(text = "Score: {}".format(self.score))
 
     def down_press(self, press):
+        if self.lost:
+            return
 
         self.window.after_cancel(self.after)
 
@@ -73,6 +118,8 @@ class Tetris:
         self.draw_loop()
             
     def move(self, right):
+        if self.lost:
+            return
         if right:
             self.blocks[-1].move_right()
         else:
@@ -85,12 +132,15 @@ class Tetris:
         file = open("score.txt", 'w')
         file.write(str(self.record))
         file.close()
+        self.lose()
         self.window.destroy()
 
     def get_block_types(self):
         return self.block_types
 
     def hard_drop(self):
+        if self.lost:
+            return
         while self.blocks[-1].placed == False:
             self.increase_score(2)
             self.blocks[-1].move_down(delay = False)
@@ -139,7 +189,9 @@ class Tetris:
             self.blocks[-1].turn()
 
     def draw_loop(self):
-        self.canvas.delete("all")
+
+        if not self.lost:
+            self.canvas.delete("all")
         num = 0
         if self.delay == DOWN_DELAY:
             self.increase_score(1)
@@ -165,15 +217,17 @@ class Tetris:
             self.increase_score(1200)
 
         if self.blocks[-1].placed:
-            self.new_block()
+            if not self.lost:
+                self.new_block()
         self.blocks[-1].move_down()
         for block in self.blocks:
             for square in block.squares:
                 x = square[0] * SPACE_SIZE
                 y = square[1] * SPACE_SIZE
-                self.canvas.create_rectangle(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill = block.color, outline = block.color)
-        
-        self.after = self.window.after(self.delay, self.draw_loop)
+                if not self.lost:
+                    self.canvas.create_rectangle(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill = block.color, outline = block.color)
+        if not self.lost:
+            self.after = self.window.after(self.delay, self.draw_loop)
 
     def pause(self):
         if self.paused:
@@ -185,6 +239,8 @@ class Tetris:
             self.draw()
 
     def draw(self):
+        if self.lost:
+            return
         self.canvas.delete("all")
         num = 0
         if self.blocks[-1].placed:
@@ -194,7 +250,8 @@ class Tetris:
                 num += 1
                 x = square[0] * SPACE_SIZE
                 y = square[1] * SPACE_SIZE
-                self.canvas.create_rectangle(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill = block.color, outline = block.color)
+                if not self.lost:
+                    self.canvas.create_rectangle(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill = block.color, outline = block.color)
 
     def remove_row(self,  row):
 
@@ -231,6 +288,8 @@ class Block:
         
         for square in self.turn_configs[0]:
             a = square
+            if [a[0] + 3, a[1] - 2] in game.placed_squares:
+                game.lose()
             self.squares.append([a[0] + 3, a[1] - 2])
 
     def turn(self):
@@ -268,8 +327,8 @@ class Block:
                 self.wait_place = True
                 if delay:
                     game.window.after(500, lambda: self.move_down(delay = False))
-                    if delay == False:
-                        self.place()
+                if delay == False:
+                    self.place()
 
                 else:
                     self.place()

@@ -12,6 +12,9 @@ DEBUG = False
 
 class Tetris:
     def init(self):
+        
+        #Starts the game for the first time, creating the window, the variables and the canvas
+
         self.window = Tk()
         self.window.title("Tetris")
         self.window.resizable(False, False)
@@ -143,8 +146,9 @@ class Tetris:
             return
         while self.blocks[-1].placed == False:
             self.increase_score(2)
-            self.blocks[-1].move_down(delay = False)
-
+            if not self.blocks[-1].placeable:
+                self.blocks[-1].move_down(self, delay = False)
+        game.check_rows()
         self.draw()
         
     def reset_block_types(self):
@@ -195,16 +199,29 @@ class Tetris:
         num = 0
         if self.delay == DOWN_DELAY:
             self.increase_score(1)
-        
+
+        if self.blocks[-1].placed:
+            if not self.lost:
+                self.new_block()
+        self.blocks[-1].move_down(self)
+        for block in self.blocks:
+            for square in block.squares:
+                x = square[0] * SPACE_SIZE
+                y = square[1] * SPACE_SIZE
+                if not self.lost:
+                    self.canvas.create_rectangle(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill = block.color, outline = block.color)
+        if not self.lost:
+            self.after = self.window.after(self.delay, self.draw_loop)
+
+    def check_rows(self):
         found_row = 0
         found_rows = 0
         num = 0
-        for a in range(ROWS):
+        for a in range(0, ROWS):
 
             num = len([p for p in self.placed_squares if p[1] == a])
             if num == COLUMNS:
                 found_row = a
-                found_rows += 1
                 self.remove_row(found_row)
 
         if found_rows == 1:
@@ -216,18 +233,16 @@ class Tetris:
         elif found_rows == 4:
             self.increase_score(1200)
 
-        if self.blocks[-1].placed:
-            if not self.lost:
-                self.new_block()
-        self.blocks[-1].move_down()
+    def remove_row(self, row):
+        
+        self.placed_squares = [square for square in self.placed_squares if square[1] != row]
+
         for block in self.blocks:
-            for square in block.squares:
-                x = square[0] * SPACE_SIZE
-                y = square[1] * SPACE_SIZE
-                if not self.lost:
-                    self.canvas.create_rectangle(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill = block.color, outline = block.color)
-        if not self.lost:
-            self.after = self.window.after(self.delay, self.draw_loop)
+            block.squares = [square for square in block.squares if square[1] != row]
+
+        for square in self.placed_squares:
+            if square[1] < row:
+                square[1] += 1
 
     def pause(self):
         if self.paused:
@@ -253,19 +268,6 @@ class Tetris:
                 if not self.lost:
                     self.canvas.create_rectangle(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill = block.color, outline = block.color)
 
-    def remove_row(self,  row):
-
-        for block in self.blocks:
-            block.remove_row(row)
-
-        self.placed_squares = [b for b in self.placed_squares if b[1] != row]
-
-        for b in self.placed_squares:
-            if b[1] < row:
-                b[1] += 1
-
-        self.draw()
-
 game = Tetris()
 
 class Block:
@@ -274,7 +276,7 @@ class Block:
 
         self.placed = False
         self.x_offset = 3
-        self.y_offset = 0
+        self.y_offset = -2
         self.squares = []
         self.wait_place = False
         self.placed = False
@@ -292,6 +294,8 @@ class Block:
                 game.lose()
             self.squares.append([a[0] + 3, a[1] - 2])
 
+        self.check_placeable()
+
     def turn(self):
 
         game.reset_block_types()
@@ -305,43 +309,69 @@ class Block:
             new_config_id += 1
 
         new_config = self.turn_configs[new_config_id]
-        new_squares = []
-        for square in new_config:
-            new_squares.append([square[0] + self.x_offset, square[1] + self.y_offset - 2])
+        new_squares = [[square[0] + self.x_offset, square[1] + self.y_offset] for square in new_config]
 
-        for sq in new_squares:
-            if sq in game.placed_squares or sq[0] not in range(0, COLUMNS) or sq[1] >= ROWS:
-                return
+        first_squares = new_squares
+        second_squares = [[a[0] - 1, a[1]] for a in new_squares]
+        third_squares = [[a[0] + 1, a[1]] for a in new_squares]
 
+        #0 means passed, 1 means failed
+        tests = [0, 0, 0]
+
+        for c in first_squares:
+            if c in game.placed_squares or c[0] not in range(0, COLUMNS) or c[1] >= ROWS:
+                tests[0] = 1
+                break
+
+        if tests[0] == 1:
+            for d in second_squares:
+                if d in game.placed_squares or d[0] not in range(0, COLUMNS) or d[1] >= ROWS:
+                    tests[1] = 1
+                    break
+        
+        if tests[1] == 1:
+            for e in third_squares:
+                if e in game.placed_squares or e[0] not in range(0, COLUMNS) or e[1] >= ROWS:
+                    tests[2] = 1
+                    break
+
+        if tests[0] == 0:
+            self.squares = new_squares
+        elif tests[1] == 0:
+            self.squares = second_squares
+        elif tests[2] == 0:
+            self.squares = third_squares
+        
         self.current_config = new_config_id
-        self.squares = new_squares
         game.draw()
 
+    def check_placeable(self):
+        self.placeable = False
+        for square in self.squares:
+            if square[1] + 1 == ROWS or [square[0], square[1] + 1] in game.placed_squares:
+                self.placeable = True
+                return
+
     def place(self):
-        self.placed = True
-        self.wait_place = False
+        self.check_placeable()
+        if self.placeable:
+            game.placed_squares += self.squares
+            self.placed = True
 
-    def move_down(self, delay = True):
-        for sq in self.squares:
-            if sq[1] + 1 == 15 or [sq[0], sq[1] + 1] in game.placed_squares:
-                self.wait_place = True
-                if delay:
-                    game.window.after(500, lambda: self.move_down(delay = False))
-                if delay == False:
-                    self.place()
+    def move_down(self, game: Tetris, delay = True):
 
-                else:
-                    self.place()
-        if self.placed or self.wait_place:
-            for square in self.squares:
-                if [square[0], square[1]] not in game.placed_squares:
-                    game.placed_squares.append([square[0], square[1]])
-            return
+        self.check_placeable()
 
-        if not self.wait_place:
+        if self.placeable:
+            if delay:
+                game.window.after(500, self.place)
+            else:
+                self.place()
+        else:
             self.y_offset += 1
-            for squ in self.squares:
-                squ[1] = squ[1] + 1
+            self.squares = [[square[0], square[1] + 1] for square in self.squares]
+
+        game.check_rows()
 
     def move_right(self):
         if self.placed:
@@ -351,8 +381,8 @@ class Block:
                     return
 
         self.x_offset += 1
-        for square in self.squares:
-            square[0] += 1
+        self.squares = [[square[0] + 1, square[1]] for square in self.squares]
+        self.check_placeable()
 
     def move_left(self):
         if self.placed:
@@ -364,11 +394,6 @@ class Block:
         self.x_offset -=1
         for square in self.squares:
             square[0] -= 1
-
-    def remove_row(self, row):
-        self.squares = [b for b in self.squares if b[1] != row]
-        for sq in self.squares:
-            if sq[1] < row:
-                sq[1] += 1
+        self.check_placeable()
 
 game.init()

@@ -28,6 +28,7 @@ class Tetris:
         self.blocks = []
         self.delay = DELAY
         self.first_time = True
+        self.space_clicked = False
         self.lost = False
         self.record = 0
         self.score = 0
@@ -44,6 +45,7 @@ class Tetris:
         self.window.bind("<KeyRelease-Down>",   lambda e: self.down_press(press = False))
         self.window.bind("<Escape>",            lambda e: self.pause())
         self.window.bind("<space>",             lambda e: self.hard_drop())
+        self.window.bind("<KeyRelease-space>",  lambda e: self.space_release())
         self.window.bind("<Button-1>",          lambda e: self.click())
 
         self.window.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -59,6 +61,9 @@ class Tetris:
         self.draw_loop()
 
         self.window.mainloop()
+
+    def space_release(self):
+        self.space_clicked = False
 
     def click(self):
         if self.lost:
@@ -142,12 +147,17 @@ class Tetris:
         return self.block_types
 
     def hard_drop(self):
+        if self.space_clicked:
+            return
+        self.space_clicked = True
         if self.lost:
             return
         while self.blocks[-1].placed == False:
             self.increase_score(2)
-            if not self.blocks[-1].placeable:
-                self.blocks[-1].move_down(self, delay = False)
+            self.blocks[-1].move_down(self, delay = False)
+            self.blocks[-1].check_placeable()
+            if self.blocks[-1].placeable:
+                self.blocks[-1].place()
         game.check_rows()
         self.draw()
         
@@ -218,11 +228,14 @@ class Tetris:
         found_rows = 0
         num = 0
         for a in range(0, ROWS):
+            failed = False
+            for column in range(0, COLUMNS):
+                if [column, a] not in self.placed_squares:
+                    failed = True
 
-            num = len([p for p in self.placed_squares if p[1] == a])
-            if num == COLUMNS:
-                found_row = a
-                self.remove_row(found_row)
+            if not failed:
+                self.remove_row(a)
+                found_rows += 1
 
         if found_rows == 1:
             self.increase_score(40)
@@ -234,7 +247,6 @@ class Tetris:
             self.increase_score(1200)
 
     def remove_row(self, row):
-        
         self.placed_squares = [square for square in self.placed_squares if square[1] != row]
 
         for block in self.blocks:
@@ -243,6 +255,8 @@ class Tetris:
         for square in self.placed_squares:
             if square[1] < row:
                 square[1] += 1
+        
+        self.draw()
 
     def pause(self):
         if self.paused:
@@ -366,6 +380,7 @@ class Block:
             if delay:
                 game.window.after(500, self.place)
             else:
+                self.placed = True
                 self.place()
         else:
             self.y_offset += 1

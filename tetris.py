@@ -1,6 +1,7 @@
 from tkinter import *
 from random import randint
 from tkextrafont import Font
+from copy import copy
 
 ROWS = 15
 COLUMNS = 10
@@ -25,21 +26,24 @@ class Tetris:
 
         self.reset_block_types()
         self.placed_squares = []
-        self.blocks = []
+        self.blocks         = []
+        self.keys = {'right': False, 'left': False}
         self.delay = DELAY
-        self.first_time = True
-        self.space_clicked = False
-        self.lost = False
-        self.record = 0
-        self.score = 0
+        self.first_time     = True
+        self.space_clicked  = False
+        self.lost           = False
+        self.paused         = False
+        self.record         = 0
+        self.score          = 0
         self.label = Label(self.window, text = "Score: {}".format(self.score), font = ("Arial", 30), bg = "#000000", fg = "#ffffff")
         self.label.pack()
         self.best_label = Label(self.window, text = "Record: {}".format(self.record), font = ("Arial", 30), bg = "#000000", fg = "#ffffff")
         self.best_label.pack()
-        self.paused = False
 
-        self.window.bind("<Right>",             lambda e: self.move(right = True))
-        self.window.bind("<Left>",              lambda e: self.move(right = False))
+        self.window.bind("<Right>",             lambda e: self.press_key(right = True))
+        self.window.bind("<KeyRelease-Right>",  lambda e: self.press_key(right = True, release = True))
+        self.window.bind("<Left>",              lambda e: self.press_key(right = False))
+        self.window.bind("<KeyRelease-Left>",   lambda e: self.press_key(right = False, release = True))
         self.window.bind("<Up>",                lambda e: self.turn())
         self.window.bind("<Down>",              lambda e: self.down_press(press = True))
         self.window.bind("<KeyRelease-Down>",   lambda e: self.down_press(press = False))
@@ -59,9 +63,23 @@ class Tetris:
 
         self.new_block()
         self.draw_loop()
+        self.check_move()
 
         self.window.mainloop()
-
+        
+    def press_key(self, right = False, release = False):
+        if right:
+            self.keys['right'] = not release
+        else:
+            self.keys['left'] = not release
+    
+    def check_move(self):
+        if self.keys['right']:
+            self.move(right = True)
+        if self.keys['left']:
+            self.move(right = False)
+        self.window.after(50, self.check_move)
+        
     def space_release(self):
         self.space_clicked = False
 
@@ -158,8 +176,10 @@ class Tetris:
             self.blocks[-1].check_placeable()
             if self.blocks[-1].placeable:
                 self.blocks[-1].place()
-        game.check_rows()
+                
+        self.check_rows()
         self.draw()
+        
         
     def reset_block_types(self):
         self.block_types = [    [   [[2, 1], [1, 2], [2, 2], [1, 3]], 
@@ -206,7 +226,6 @@ class Tetris:
 
         if not self.lost:
             self.canvas.delete("all")
-        num = 0
         if self.delay == DOWN_DELAY:
             self.increase_score(1)
 
@@ -220,6 +239,8 @@ class Tetris:
                 y = square[1] * SPACE_SIZE
                 if not self.lost:
                     self.canvas.create_rectangle(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill = block.color, outline = block.color)
+            
+        game.check_rows()
         if not self.lost:
             self.after = self.window.after(self.delay, self.draw_loop)
 
@@ -247,15 +268,15 @@ class Tetris:
             self.increase_score(1200)
 
     def remove_row(self, row):
+
         self.placed_squares = [square for square in self.placed_squares if square[1] != row]
 
         for block in self.blocks:
             block.squares = [square for square in block.squares if square[1] != row]
-
         for square in self.placed_squares:
             if square[1] < row:
                 square[1] += 1
-        
+
         self.draw()
 
     def pause(self):
@@ -369,7 +390,7 @@ class Block:
     def place(self):
         self.check_placeable()
         if self.placeable:
-            game.placed_squares += self.squares
+            game.placed_squares += copy(self.squares)
             self.placed = True
 
     def move_down(self, game: Tetris, delay = True):
@@ -385,8 +406,6 @@ class Block:
         else:
             self.y_offset += 1
             self.squares = [[square[0], square[1] + 1] for square in self.squares]
-
-        game.check_rows()
 
     def move_right(self):
         if self.placed:
@@ -410,5 +429,11 @@ class Block:
         for square in self.squares:
             square[0] -= 1
         self.check_placeable()
+        
+    def remove_row(self, row):
+        self.squares = [b for b in self.squares if b[1] != row]
+        for sq in self.squares:
+            if sq[1] < row:
+                sq[1] += 1
 
 game.init()

@@ -9,12 +9,8 @@ SPACE_SIZE = 50
 DELAY = 300
 DOWN_DELAY = 40
 
-DEBUG = False
-
 class Tetris:
     def init(self):
-        
-        #Starts the game for the first time, creating the window, the variables and the canvas
 
         self.window = Tk()
         self.window.title("Tetris")
@@ -133,14 +129,11 @@ class Tetris:
     def down_press(self, press):
         if self.lost:
             return
-
         self.window.after_cancel(self.after)
-
         if press:
             self.delay = DOWN_DELAY
         else:
             self.delay = DELAY
-
         self.draw_loop()
             
     def move(self, right):
@@ -160,9 +153,6 @@ class Tetris:
         file.close()
         self.lose()
         self.window.destroy()
-
-    def get_block_types(self):
-        return self.block_types
 
     def hard_drop(self):
         if self.space_clicked:
@@ -317,7 +307,7 @@ class Block:
         self.placed = False
 
         self.index = randint(0, len(game.block_types) - 1)
-        self.block = game.get_block_types()[self.index]
+        self.block = copy(game.block_types)[self.index]
         self.color = self.block[-2]
         self.block_type = self.block[-1]
         self.turn_configs = self.block[:-2]
@@ -334,7 +324,7 @@ class Block:
     def turn(self):
 
         game.reset_block_types()
-        self.block = game.get_block_types()[self.index]
+        self.block = copy(game.block_types)[self.index]
         self.turn_configs = self.block[:-2]
 
         new_config_id = self.current_config
